@@ -1,1 +1,38 @@
-/* You can add global styles to this file, and also import other style files */
+/* Normalize */
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+textarea,
+li,
+ul,
+a {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  z-index: 0;
+}
+
+ul,
+li {
+  list-style:none;
+}
+
+a, a:link, a:visited, a:active, a:hover {
+ text-decoration: none;
+ }
+
+ button {
+   border: none;
+ }
+
+
+body {
+  background-color: #373637;
+}

@@ -1,0 +1,18 @@
+
+<div id="stopwatch-container">
+  <div id="stopwatch-display">
+    <p class="stopwatch-display-time">88:88.88</p>
+    <p class="stopwatch-display-time light-green">{{ stopwatchState.minutes | twoDigit }}:{{ stopwatchState.seconds | twoDigit }}.{{ stopwatchState.milliseconds | twoDigit }}</p>
+  </div>
+  <div id="stopwatch-buttons" formGroup="form">
+    <button (click)=handleStartStop() type="button"></button>
+    <button (click)=handleTimeStamp() type="button">Lap</button>
+    <button (click)=handleClear() type="button">Stop&Clear</button>
+  </div>
+</div>
+<ul>
+  <li class="item" *ngFor="let stamp of timeStamps">
+    <p>{{ stamp.minutes | twoDigit }}:{{ stamp.seconds | twoDigit }}.{{ stamp.milliseconds | twoDigit }} </p>
+    <button class="remove-button" type="button" (click)=removeTimeStamp(stamp.id)>{{"remove" | uppercase}}</button>
+  </li>
+</ul>
