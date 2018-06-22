@@ -1,8 +1,7 @@
-import { Component, OnInit, HostListener, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, HostListener, Inject } from '@angular/core';
 import { v4 as uuid } from 'uuid';
 import { StopWatchState } from '../stop-watch-state';
 import { StorageHandlerService } from '../storage-handler.service';
-
 
 
 @Component({
@@ -14,65 +13,41 @@ import { StorageHandlerService } from '../storage-handler.service';
 export class StopwatchComponent implements OnInit {
   stopwatchState = new StopWatchState(0,0,0,false);
   timeStamps = [];
-  timeInterval = 0;
-  windowId = null;
+  timeInterval = null;
+  windowOpened = null;
 
-  // @HostListener('window:storage', ['$event'])
-  // storageChange(event) {
-  //   this.chech;
-  //   // this.stopwatchState.isStarted = fal;
-  //   // this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
-  // }
+  @HostListener('window:storage', ['$event'])
+  listenStorage(e) {
+    // console.log('Storage:', e);
+    this.checkStorage(e.storageArea);
+  }
 
-  // @HostListener('click', ['$event'])
-  // checkWindow(e) {
-  //   this.windowId = this.storageService.getPropertyValue('windowId');
-  // }
-
-  constructor(private storageService: StorageHandlerService) { }
+  constructor(private storageService: StorageHandlerService) {
+  }
 
   ngOnInit() {
-    this.eventHandler();
-    this.checkStorage();
-    // console.log(this.stopwatchState);
-    // this.createWindowId();
+    this.checkStorageOnInit();
   }
 
   ngOnDestroy() {
-    // this.checkStorage();
-  }
-
-  createWindowId() {
-    this.windowId = uuid();
-    this.storageService.savePropertyValue('windowId', this.windowId);
-    console.log(this.windowId);
-  }
-
-  eventHandler() {
-    console.log('handlim');
-    window.addEventListener('storage', this.checkStorage.bind(this));
+    this.saveTime();
+    this.storageService.savePropertyValue('timeStamps', this.timeStamps);
   }
 
   handleStartStop() {
-    console.log('inside start stop');
-    // console.log(this.stopwatchState.isStarted);
     if (this.stopwatchState.isStarted) {
-      clearInterval(this.timeInterval);
       this.stopwatchState.isStarted = false;
-      this.storageService.savePropertyValue('state', this.stopwatchState);
-      this.saveCurrentTime();
-    } else {
+      this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
+      this.timeInterval = clearInterval(this.timeInterval);
+      this.saveTime();
+    } else if (!this.stopwatchState.isStarted) {
       this.stopwatchState.isStarted = true;
+      this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
       this.timeInterval = this.incrementTime();
     }
-    console.log(this.stopwatchState.isStarted);
-    // console.log(this.timeInterval);
-
-    // this.storageService.savePropertyValue('timeInterval', this.timeInterval);
   }
 
-  handleTimeStamp() {
-    console.log(this.stopwatchState.isStarted);
+  addTimeStamp() {
     if (this.stopwatchState.isStarted) {
       let stampId = uuid();
       let newTimeStamp = {
@@ -82,7 +57,6 @@ export class StopwatchComponent implements OnInit {
         minutes: this.stopwatchState.minutes
       }
       this.timeStamps.unshift(newTimeStamp);
-      console.log(this.timeStamps);
       this.storageService.savePropertyValue('timeStamps', this.timeStamps);
     }
   }
@@ -93,70 +67,76 @@ export class StopwatchComponent implements OnInit {
   }
 
   handleClear() {
-    clearInterval(this.timeInterval);
-    this.storageService.clearStorage();
-    // let clearState = new StopWatchState(0,0,0,false);
+    this.timeInterval = clearInterval(this.timeInterval);
     this.stopwatchState.isStarted = false;
-    // this.stopwatchState = clearState;
     this.stopwatchState.milliseconds = 0;
     this.stopwatchState.seconds = 0;
     this.stopwatchState.minutes = 0;
+    this.saveTime();
+    this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
     this.timeStamps = [];
     this.storageService.savePropertyValue('timeStamps', this.timeStamps);
-    this.storageService.savePropertyValue('state', this.stopwatchState);
-    this.saveCurrentTime();
   }
 
   incrementTime() {
     return setInterval(() => {
-      this.stopwatchState.milliseconds+=1;
+      this.stopwatchState.milliseconds++;
       if (this.stopwatchState.milliseconds % 100 === 0) {
-        this.stopwatchState.seconds+=1;
+        this.stopwatchState.seconds++;
         this.stopwatchState.milliseconds = 0;
       }
       if (this.stopwatchState.seconds % 60 === 0 && this.stopwatchState.milliseconds === 0) {
-        this.stopwatchState.minutes+=1;
+        this.stopwatchState.minutes++;
         this.stopwatchState.seconds = 0;
       }
-      this.storageService.savePropertyValue('state', this.stopwatchState);
-      this.saveCurrentTime();
+      this.saveTime();
     }, 10);
   }
 
-  checkStorage() {
-    let storedState = this.storageService.getPropertyValue('state');
+  checkStorage(e) {
+    if (e !== undefined) {
+      let storedIsStarted = JSON.parse(e.isStarted);
+      let time = JSON.parse(e.time);
+      if (this.stopwatchState.isStarted !== storedIsStarted) {
+        this.stopwatchState.isStarted = storedIsStarted;
+      }
+      if (!this.stopwatchState.isTimeEqual(time)) {
+        this.stopwatchState.seconds = time.seconds;
+        this.stopwatchState.milliseconds = time.milliseconds;
+        this.stopwatchState.minutes = time.minutes;
+      }
+      if (!storedIsStarted) {
+        this.timeInterval = clearInterval(this.timeInterval);
+      }
+      this.timeStamps = JSON.parse(e.timeStamps);
+    }
+  }
+
+  checkStorageOnInit() {
+    let storedTime = this.storageService.getPropertyValue('time');
+    let storedIsStarted = this.storageService.getPropertyValue('isStarted');
     let storedTimeStamps = this.storageService.getPropertyValue('timeStamps');
     let storedTrueTime = this.storageService.getPropertyValue('syncTime');
-    // console.log('inside check storage');
-    // console.log(storedState);
-    if (storedState) {
-      if (!this.isStateEqual(storedState)) {
-        // this.stopwatchState = new StopWatchState(storedState.milliseconds, storedState.seconds, storedState.minutes, storedState.isStarted);
-        this.stopwatchState.milliseconds = storedState.milliseconds;
-        this.stopwatchState.seconds = storedState.seconds;
-        this.stopwatchState.minutes = storedState.minutes;
-        console.log(this.stopwatchState.isStarted);
-        console.log(storedState.isStarted);
-        if (storedState.isStarted) {
-          // if (storedWindowId === this.windowId) {
-          let currentTime = Date.parse(new Date().toISOString());
-          let elapsedTime = currentTime - storedTrueTime;
-          if (elapsedTime > 850) {
-            console.log(elapsedTime);
-            console.log('restoring');
-            this.convertStoredTime(elapsedTime);
-            this.stopwatchState.isStarted = storedState.isStarted;
-            this.timeInterval = this.incrementTime();
-          }
-        } else if (this.stopwatchState.isStarted && !storedState.isStarted) {
-            this.handleStartStop();
+    if (storedTime !== undefined) {
+      if (!this.stopwatchState.isTimeEqual(storedTime)) {
+        this.stopwatchState.milliseconds = storedTime.milliseconds;
+        this.stopwatchState.seconds = storedTime.seconds;
+        this.stopwatchState.minutes = storedTime.minutes;
+        this.stopwatchState.isStarted = storedIsStarted;
+      }
+      if (this.stopwatchState.isStarted) {
+        let currentTime = Date.parse(new Date().toISOString());
+        let elapsedTime = currentTime - storedTrueTime;
+        if (elapsedTime > 1000) {
+          this.convertStoredTime(elapsedTime);
+          this.timeInterval = this.incrementTime();
+          this.storageService.savePropertyValue('isStarted', true);
         }
       }
-    }
-      if (storedTimeStamps) {
+      if (storedTimeStamps !== undefined) {
         this.timeStamps = storedTimeStamps;
       }
-    // }
+    }
   }
 
   convertStoredTime(elapsedTime) {
@@ -164,41 +144,36 @@ export class StopwatchComponent implements OnInit {
     let milliseconds = normalizedTime % 100;
     let seconds = Math.floor(normalizedTime / 100);
     let minutes = Math.floor(seconds / 60);
-    // console.log('ms '+milliseconds);
-    // console.log('s '+seconds);
-    // console.log('min '+minutes);
     let newMilliseconds = this.stopwatchState.milliseconds + milliseconds;
     let newSeconds = this.stopwatchState.seconds + seconds;
+
     if (newMilliseconds >= 100) {
       this.stopwatchState.milliseconds = newMilliseconds % 100;
-      this.stopwatchState.seconds+=1;
+      this.stopwatchState.seconds++;
     } else {
       this.stopwatchState.milliseconds = milliseconds;
     }
+
     if (newSeconds >= 60) {
       this.stopwatchState.seconds = newSeconds % 60;
-      this.stopwatchState.minutes+=1;
+      this.stopwatchState.minutes++;
     } else {
       this.stopwatchState.seconds = seconds;
     }
     this.stopwatchState.minutes = minutes;
-    // console.log('new ms '+this.stopwatchState.milliseconds);
-    // console.log('new s '+this.stopwatchState.seconds);
-    // console.log('new min '+this.stopwatchState.minutes);
   }
 
-  isStateEqual(state) {
-    if (JSON.stringify(this.stopwatchState) == JSON.stringify(state)) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  saveCurrentTime() {
+  saveTime() {
+    let time = {
+      milliseconds: this.stopwatchState.milliseconds,
+      seconds: this.stopwatchState.seconds,
+      minutes: this.stopwatchState.minutes
+    };
+    this.storageService.savePropertyValue('time', time);
     let currentTime = new Date().toISOString();
     this.storageService.savePropertyValue('syncTime', Date.parse(currentTime));
   }
+
 
   blinkDelimiter() {
     if (this.stopwatchState.isStarted) {

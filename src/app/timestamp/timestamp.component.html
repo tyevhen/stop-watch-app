@@ -1,0 +1,7 @@
+<div class="timestamp-container">
+  <div class="timestamp-item">
+    <p class="time-background">88:88.88</p>
+    <p class="time">{{timeStamp.minutes | twoDigit}}:{{timeStamp.seconds | twoDigit}}.{{timeStamp.milliseconds | twoDigit}}</p>
+  </div>
+  <button class="remove-button" *ngIf="isVisible" type="button" (click)=onRemove(timeStamp.id)>{{"remove" | uppercase}}</button>
+</div>

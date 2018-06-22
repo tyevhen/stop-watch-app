@@ -5,14 +5,45 @@
     <p class="stopwatch-display-time light-green">{{ stopwatchState.minutes | twoDigit }}:{{ stopwatchState.seconds | twoDigit }}.{{ stopwatchState.milliseconds | twoDigit }}</p>
   </div>
   <div id="stopwatch-buttons" formGroup="form">
-    <button (click)=handleStartStop() type="button"></button>
-    <button (click)=handleTimeStamp() type="button">Lap</button>
-    <button (click)=handleClear() type="button">Stop&Clear</button>
+    <button (click)=handleStartStop() type="button">
+      <div *ngIf="!stopwatchState.isStarted">
+        <i class="fas fa-play fa-1x"></i>
+        Play
+      </div>
+      <div *ngIf="stopwatchState.isStarted">
+        <i class="fas fa-pause fa-1x"></i>
+        Pause
+      </div>
+    </button>
+    <button (click)=addTimeStamp() type="button">
+      <i class="fas fa-stopwatch fa-2x"></i>
+    </button>
+    <button (click)=handleClear() type="button">
+      <i class="fas fa-trash-alt fa-2x"></i>
+    </button>
   </div>
 </div>
-<ul>
-  <li class="item" *ngFor="let stamp of timeStamps">
-    <p>{{ stamp.minutes | twoDigit }}:{{ stamp.seconds | twoDigit }}.{{ stamp.milliseconds | twoDigit }} </p>
-    <button class="remove-button" type="button" (click)=removeTimeStamp(stamp.id)>{{"remove" | uppercase}}</button>
+
+<div class="timestamp-list-container">
+  <app-timestamp
+      *ngFor="let stamp of timeStamps"
+      [timeStamp]="stamp"
+      (removeTimeStamp)="removeTimeStamp($event)">
+  </app-timestamp>
+</div>
+<!-- <ul>
+  <li
+    class="item"
+    [id]="stamp.id"
+    *ngFor="let stamp of timeStamps"
+    (mouseenter)="enter = mouseEnter(stamp.id, $event)"
+    (mouseleave)="enter = mouseLeave(stamp.id, $event)">
+    <p>{{ stamp.minutes | twoDigit }}:{{ stamp.seconds | twoDigit }}.{{ stamp.milliseconds | twoDigit }}</p>
+    <button
+      [id]="stamp.id"
+      class="remove-button"
+      type="button"
+      (click)=removeTimeStamp(stamp.id)>{{"remove" | uppercase}}
+    </button>
   </li>
-</ul>
+</ul> -->
