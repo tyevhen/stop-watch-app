@@ -3,8 +3,8 @@ import { NgModule } from '@angular/core';
 
 import { AppComponent } from './app.component';
 import { StopwatchComponent } from './stopwatch/stopwatch.component';
-import { StorageHandlerService } from './storage-handler.service';
-import { TwoDigitPipe } from './two-digit.pipe';
+import { StorageHandlerService } from './services/storage-handler.service';
+import { TwoDigitPipe } from './pipes/two-digit.pipe';
 import { TimestampComponent } from './timestamp/timestamp.component';
 
 

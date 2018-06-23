@@ -1,8 +1,7 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, HostListener, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, Inject } from '@angular/core';
 import { v4 as uuid } from 'uuid';
-import { StopWatchState } from '../stop-watch-state';
-import { StorageHandlerService } from '../storage-handler.service';
-
+import { StopWatchState } from '../state/stop-watch-state';
+import { StorageHandlerService } from '../services/storage-handler.service';
 
 @Component({
   selector: 'app-stopwatch',
@@ -17,12 +16,11 @@ export class StopwatchComponent implements OnInit {
   blinkInterval = null;
   isDelimShown = true;
 
-
+  // Listening storage changes.
   @HostListener('window:storage', ['$event'])
   listenStorage(e) {
-    this.checkStorage(e.storageArea);
+    this.syncStorage(e.storageArea);
   }
-
 
   constructor(private storageService: StorageHandlerService) {
   }
@@ -32,37 +30,40 @@ export class StopwatchComponent implements OnInit {
     this.windowEventBinding();
   }
 
-  // ngOnDestroy() {
-  //   this.saveTime();
-  // }
-
-  addWindow() {
-    let windowCount = this.storageService.getPropertyValue('windowCount');
-    if (!windowCount || windowCount < 0) {
-      windowCount = 0;
-    }
-    console.log('Window opened');
-    console.log(windowCount);
-    this.storageService.savePropertyValue('windowCount', windowCount+1);
+  ngOnDestroy() {
+    this.saveTime();
+    this.saveCurrentTime();
+    this.storageService.savePropertyValue(this.stopwatchState.isStarted);
   }
 
-  deleteWindow() {
-    let windowCount = this.storageService.getPropertyValue('windowCount');
-    console.log('windowCount in deleteWindow:', windowCount);
-    this.storageService.savePropertyValue('windowCount', windowCount-1);
-  }
-
+  // Bind window load/unload events with respective methods.
   windowEventBinding(){
     window.onload = this.addWindow.bind(this);
     window.onbeforeunload = this.deleteWindow.bind(this);
   }
 
+  // Increment windows count.
+  addWindow() {
+    let windowCount = this.storageService.getPropertyValue('windowCount');
+    if (windowCount < 0 ) {
+      windowCount = 0;
+    }
+    this.storageService.savePropertyValue('windowCount', windowCount+1);
+  }
+
+  // Decrement windows count.
+  deleteWindow() {
+    let windowCount = this.storageService.getPropertyValue('windowCount');
+    this.storageService.savePropertyValue('windowCount', windowCount-1);
+  }
+
+  // Method attached to start/stop button.
   handleStartStop() {
     if (this.stopwatchState.isStarted) {
       this.stopwatchState.isStarted = false;
       this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
       this.timeInterval = clearInterval(this.timeInterval);
-      this.blinkInterval = clearInterval(this.blinkInterval);
+      this.blinkDelimiter();
       this.isDelimShown = true;
       this.saveTime();
       this.saveCurrentTime();
@@ -74,39 +75,7 @@ export class StopwatchComponent implements OnInit {
     }
   }
 
-  addTimeStamp() {
-    if (this.stopwatchState.isStarted) {
-      let stampId = uuid();
-      let newTimeStamp = {
-        id: stampId,
-        milliseconds: this.stopwatchState.milliseconds,
-        seconds: this.stopwatchState.seconds,
-        minutes: this.stopwatchState.minutes
-      }
-      this.timeStamps.unshift(newTimeStamp);
-      this.storageService.savePropertyValue('timeStamps', this.timeStamps);
-    }
-  }
-
-  removeTimeStamp(id) {
-    this.timeStamps = this.timeStamps.filter(item => item.id !== id);
-    this.storageService.savePropertyValue('timeStamps', this.timeStamps);
-  }
-
-  handleClear() {
-    this.timeInterval = clearInterval(this.timeInterval);
-    this.blinkInterval = clearInterval(this.blinkInterval);
-    this.isDelimShown = true;
-    this.stopwatchState.isStarted = false;
-    this.stopwatchState.milliseconds = 0;
-    this.stopwatchState.seconds = 0;
-    this.stopwatchState.minutes = 0;
-    this.saveTime();
-    this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
-    this.timeStamps = [];
-    this.storageService.savePropertyValue('timeStamps', this.timeStamps);
-  }
-
+  // Method that increments time.
   incrementTime() {
     return setInterval(() => {
       this.stopwatchState.milliseconds++;
@@ -123,34 +92,70 @@ export class StopwatchComponent implements OnInit {
     }, 10);
   }
 
-  checkStorage(e) {
-    console.log(e.length);
+  // Method attached to "timestamp" button: adds timestamp.
+  addTimeStamp() {
+    if (this.stopwatchState.isStarted) {
+      let stampId = uuid();
+      let newTimeStamp = {
+        id: stampId,
+        milliseconds: this.stopwatchState.milliseconds,
+        seconds: this.stopwatchState.seconds,
+        minutes: this.stopwatchState.minutes
+      }
+      this.timeStamps.unshift(newTimeStamp);
+      this.storageService.savePropertyValue('timeStamps', this.timeStamps);
+    }
+  }
+
+  // Method attached to remove timestamp button: removes timestamp by id.
+  removeTimeStamp(id) {
+    this.timeStamps = this.timeStamps.filter(item => item.id !== id);
+    this.storageService.savePropertyValue('timeStamps', this.timeStamps);
+  }
+
+  // Method attached to reset button: resets all data and stops time.
+  handleClear() {
+    this.timeInterval = clearInterval(this.timeInterval);
+    this.isDelimShown = true;
+    this.stopwatchState.isStarted = false;
+    this.stopwatchState.milliseconds = 0;
+    this.stopwatchState.seconds = 0;
+    this.stopwatchState.minutes = 0;
+    this.saveTime();
+    this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
+    this.timeStamps = [];
+    this.storageService.savePropertyValue('timeStamps', this.timeStamps);
+    this.blinkDelimiter();
+  }
+
+  // Method that synchronizes new pages by storage change event.
+  syncStorage(e) {
     if (e !== null && e !== undefined && e.length) {
       let storedIsStarted = JSON.parse(e.isStarted);
       let storedTime = JSON.parse(e.time);
       let storedWindowCount = JSON.parse(e.windowCount);
 
+      this.stopwatchState.seconds = storedTime.seconds;
+      this.stopwatchState.milliseconds = storedTime.milliseconds;
+      this.stopwatchState.minutes = storedTime.minutes;
+
       if (this.stopwatchState.isStarted !== storedIsStarted) {
         this.stopwatchState.isStarted = storedIsStarted;
         this.blinkInterval = this.blinkDelimiter();
       }
-      if (!this.stopwatchState.isTimeEqual(storedTime)) {
-        this.stopwatchState.seconds = storedTime.seconds;
-        this.stopwatchState.milliseconds = storedTime.milliseconds;
-        this.stopwatchState.minutes = storedTime.minutes;
-        this.saveTime();
-        this.saveCurrentTime();
-      }
+
       if (!storedIsStarted) {
         this.timeInterval = clearInterval(this.timeInterval);
-        this.blinkInterval = clearInterval(this.blinkInterval);
+        this.blinkDelimiter();
         this.isDelimShown = true;
       }
-      console.log('Local state:', this.stopwatchState.isStarted);
-      if (!this.stopwatchState.isStarted && storedWindowCount == 1) {
+
+      if (this.stopwatchState.isStarted == storedIsStarted &&
+          storedWindowCount == 1 && !storedIsStarted) {
         this.timeInterval = this.incrementTime();
         this.blinkInterval = this.blinkDelimiter();
       }
+
       if (e.timeStamps) {
         if (JSON.parse(e.timeStamps).length !== this.timeStamps.length) {
           this.timeStamps = JSON.parse(e.timeStamps);
@@ -159,38 +164,47 @@ export class StopwatchComponent implements OnInit {
     }
   }
 
+  // Method that checks storage on component init.
   checkStorageOnInit() {
     let storedTime = this.storageService.getPropertyValue('time');
     let storedIsStarted = this.storageService.getPropertyValue('isStarted');
     let storedTimeStamps = this.storageService.getPropertyValue('timeStamps');
     let storedTrueTime = this.storageService.getPropertyValue('syncTime');
+
     let currentTime = Date.parse(new Date().toISOString());
     let elapsedTime = currentTime - storedTrueTime;
-    
+
     if (storedTime !== null) {
       if (!this.stopwatchState.isTimeEqual(storedTime)) {
         this.stopwatchState.milliseconds = storedTime.milliseconds;
         this.stopwatchState.seconds = storedTime.seconds;
         this.stopwatchState.minutes = storedTime.minutes;
+        console.log(storedIsStarted);
         this.stopwatchState.isStarted = storedIsStarted;
       }
       if (this.stopwatchState.isStarted) {
         let currentTime = Date.parse(new Date().toISOString());
         let elapsedTime = currentTime - storedTrueTime;
-        if (elapsedTime > 200) {
+        console.log(elapsedTime);
+        if (elapsedTime > 1000) {
           this.convertStoredTime(elapsedTime);
           this.timeInterval = this.incrementTime();
           this.blinkInterval = this.blinkDelimiter();
           this.storageService.savePropertyValue('isStarted', true);
         }
       }
-
+      console.log(this.stopwatchState.isStarted);
+      if (this.stopwatchState.isStarted) {
+        this.blinkInterval = this.blinkDelimiter();
+      }
       if (storedTimeStamps !== undefined) {
         this.timeStamps = storedTimeStamps;
       }
     }
   }
 
+  // Method that converts last stored timestamp and is used when the last
+  // component was closed and opened after some time to restore the time.
   convertStoredTime(elapsedTime) {
     let normalizedTime = Math.floor(elapsedTime / 10);
     let milliseconds = normalizedTime % 100;
@@ -215,6 +229,7 @@ export class StopwatchComponent implements OnInit {
     this.stopwatchState.minutes = minutes;
   }
 
+  // Method saves current component time.
   saveTime() {
     let time = {
       milliseconds: this.stopwatchState.milliseconds,
@@ -224,15 +239,16 @@ export class StopwatchComponent implements OnInit {
     this.storageService.savePropertyValue('time', time);
   }
 
+  // Method saves current "real world" time.
   saveCurrentTime() {
     let currentTime = new Date().toISOString();
     this.storageService.savePropertyValue('syncTime', Date.parse(currentTime));
   }
 
-
+  // Method ensures delimiter blinking.
   blinkDelimiter() {
     if (this.stopwatchState.isStarted) {
-      console.log('Blinking');
+      this.blinkInterval = clearInterval(this.blinkInterval);
       return setInterval(() => {
         if (this.isDelimShown) {
           this.isDelimShown = false;
@@ -241,7 +257,6 @@ export class StopwatchComponent implements OnInit {
         }
       }, 1000);
     } else if (!this.stopwatchState.isStarted) {
-      console.log('Not blinking');
       this.blinkInterval = clearInterval(this.blinkInterval);
     }
   }
