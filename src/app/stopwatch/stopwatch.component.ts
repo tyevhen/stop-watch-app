@@ -33,7 +33,7 @@ export class StopwatchComponent implements OnInit {
   ngOnDestroy() {
     this.saveTime();
     this.saveCurrentTime();
-    this.storageService.savePropertyValue(this.stopwatchState.isStarted);
+    this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
   }
 
   // Bind window load/unload events with respective methods.
