@@ -37,7 +37,10 @@ a, a:link, a:visited, a:active, a:hover {
    border: none;
  }
 
-
 body {
   background-color: #373637;
+}
+
+app-timestamp:nth-last-of-type(n+2) .timestamp-container {
+  border-bottom: 1.5px solid #484548;
 }

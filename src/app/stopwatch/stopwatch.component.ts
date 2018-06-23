@@ -14,24 +14,47 @@ export class StopwatchComponent implements OnInit {
   stopwatchState = new StopWatchState(0,0,0,false);
   timeStamps = [];
   timeInterval = null;
-  windowOpened = null;
+  blinkInterval = null;
+  isDelimShown = true;
+
 
   @HostListener('window:storage', ['$event'])
   listenStorage(e) {
-    // console.log('Storage:', e);
     this.checkStorage(e.storageArea);
   }
+
 
   constructor(private storageService: StorageHandlerService) {
   }
 
   ngOnInit() {
     this.checkStorageOnInit();
+    this.windowEventBinding();
   }
 
-  ngOnDestroy() {
-    this.saveTime();
-    this.storageService.savePropertyValue('timeStamps', this.timeStamps);
+  // ngOnDestroy() {
+  //   this.saveTime();
+  // }
+
+  addWindow() {
+    let windowCount = this.storageService.getPropertyValue('windowCount');
+    if (!windowCount || windowCount < 0) {
+      windowCount = 0;
+    }
+    console.log('Window opened');
+    console.log(windowCount);
+    this.storageService.savePropertyValue('windowCount', windowCount+1);
+  }
+
+  deleteWindow() {
+    let windowCount = this.storageService.getPropertyValue('windowCount');
+    console.log('windowCount in deleteWindow:', windowCount);
+    this.storageService.savePropertyValue('windowCount', windowCount-1);
+  }
+
+  windowEventBinding(){
+    window.onload = this.addWindow.bind(this);
+    window.onbeforeunload = this.deleteWindow.bind(this);
   }
 
   handleStartStop() {
@@ -39,11 +62,15 @@ export class StopwatchComponent implements OnInit {
       this.stopwatchState.isStarted = false;
       this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
       this.timeInterval = clearInterval(this.timeInterval);
+      this.blinkInterval = clearInterval(this.blinkInterval);
+      this.isDelimShown = true;
       this.saveTime();
+      this.saveCurrentTime();
     } else if (!this.stopwatchState.isStarted) {
       this.stopwatchState.isStarted = true;
       this.storageService.savePropertyValue('isStarted', this.stopwatchState.isStarted);
       this.timeInterval = this.incrementTime();
+      this.blinkInterval = this.blinkDelimiter();
     }
   }
 
@@ -68,6 +95,8 @@ export class StopwatchComponent implements OnInit {
 
   handleClear() {
     this.timeInterval = clearInterval(this.timeInterval);
+    this.blinkInterval = clearInterval(this.blinkInterval);
+    this.isDelimShown = true;
     this.stopwatchState.isStarted = false;
     this.stopwatchState.milliseconds = 0;
     this.stopwatchState.seconds = 0;
@@ -90,25 +119,43 @@ export class StopwatchComponent implements OnInit {
         this.stopwatchState.seconds = 0;
       }
       this.saveTime();
+      this.saveCurrentTime();
     }, 10);
   }
 
   checkStorage(e) {
-    if (e !== undefined) {
+    console.log(e.length);
+    if (e !== null && e !== undefined && e.length) {
       let storedIsStarted = JSON.parse(e.isStarted);
-      let time = JSON.parse(e.time);
+      let storedTime = JSON.parse(e.time);
+      let storedWindowCount = JSON.parse(e.windowCount);
+
       if (this.stopwatchState.isStarted !== storedIsStarted) {
         this.stopwatchState.isStarted = storedIsStarted;
+        this.blinkInterval = this.blinkDelimiter();
       }
-      if (!this.stopwatchState.isTimeEqual(time)) {
-        this.stopwatchState.seconds = time.seconds;
-        this.stopwatchState.milliseconds = time.milliseconds;
-        this.stopwatchState.minutes = time.minutes;
+      if (!this.stopwatchState.isTimeEqual(storedTime)) {
+        this.stopwatchState.seconds = storedTime.seconds;
+        this.stopwatchState.milliseconds = storedTime.milliseconds;
+        this.stopwatchState.minutes = storedTime.minutes;
+        this.saveTime();
+        this.saveCurrentTime();
       }
       if (!storedIsStarted) {
         this.timeInterval = clearInterval(this.timeInterval);
+        this.blinkInterval = clearInterval(this.blinkInterval);
+        this.isDelimShown = true;
       }
-      this.timeStamps = JSON.parse(e.timeStamps);
+      console.log('Local state:', this.stopwatchState.isStarted);
+      if (!this.stopwatchState.isStarted && storedWindowCount == 1) {
+        this.timeInterval = this.incrementTime();
+        this.blinkInterval = this.blinkDelimiter();
+      }
+      if (e.timeStamps) {
+        if (JSON.parse(e.timeStamps).length !== this.timeStamps.length) {
+          this.timeStamps = JSON.parse(e.timeStamps);
+        }
+      }
     }
   }
 
@@ -117,7 +164,10 @@ export class StopwatchComponent implements OnInit {
     let storedIsStarted = this.storageService.getPropertyValue('isStarted');
     let storedTimeStamps = this.storageService.getPropertyValue('timeStamps');
     let storedTrueTime = this.storageService.getPropertyValue('syncTime');
-    if (storedTime !== undefined) {
+    let currentTime = Date.parse(new Date().toISOString());
+    let elapsedTime = currentTime - storedTrueTime;
+    
+    if (storedTime !== null) {
       if (!this.stopwatchState.isTimeEqual(storedTime)) {
         this.stopwatchState.milliseconds = storedTime.milliseconds;
         this.stopwatchState.seconds = storedTime.seconds;
@@ -127,12 +177,14 @@ export class StopwatchComponent implements OnInit {
       if (this.stopwatchState.isStarted) {
         let currentTime = Date.parse(new Date().toISOString());
         let elapsedTime = currentTime - storedTrueTime;
-        if (elapsedTime > 1000) {
+        if (elapsedTime > 200) {
           this.convertStoredTime(elapsedTime);
           this.timeInterval = this.incrementTime();
+          this.blinkInterval = this.blinkDelimiter();
           this.storageService.savePropertyValue('isStarted', true);
         }
       }
+
       if (storedTimeStamps !== undefined) {
         this.timeStamps = storedTimeStamps;
       }
@@ -170,6 +222,9 @@ export class StopwatchComponent implements OnInit {
       minutes: this.stopwatchState.minutes
     };
     this.storageService.savePropertyValue('time', time);
+  }
+
+  saveCurrentTime() {
     let currentTime = new Date().toISOString();
     this.storageService.savePropertyValue('syncTime', Date.parse(currentTime));
   }
@@ -177,9 +232,17 @@ export class StopwatchComponent implements OnInit {
 
   blinkDelimiter() {
     if (this.stopwatchState.isStarted) {
+      console.log('Blinking');
       return setInterval(() => {
-
-      })
+        if (this.isDelimShown) {
+          this.isDelimShown = false;
+        } else {
+          this.isDelimShown = true;
+        }
+      }, 1000);
+    } else if (!this.stopwatchState.isStarted) {
+      console.log('Not blinking');
+      this.blinkInterval = clearInterval(this.blinkInterval);
     }
   }
 

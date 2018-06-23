@@ -1,15 +1,16 @@
 .timestamp-container {
   display: flex;
-  flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  position: relative;
-  height: 70px;
+  height: 60px;
 }
 
 .remove-button{
   background: red;
-  width: auto;
+  height: 25px;
+  width: 80px;
+  color: white;
+  margin-top: 5px;
 }
 
 .timestamp-item {
@@ -22,10 +23,12 @@
   align-items: center;
 }
 
-.time {
+.timestamp {
+  font-size: 25px;
   position: absolute;
+  color: #FAF9F8;
 }
 
-.time-background {
-
+#lcd-background {
+  color: #484548;
 }

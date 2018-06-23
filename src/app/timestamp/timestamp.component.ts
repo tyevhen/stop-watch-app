@@ -6,12 +6,11 @@ import { Component, OnInit, Input, Output, EventEmitter, HostListener } from '@a
   styleUrls: ['./timestamp.component.css']
 })
 export class TimestampComponent implements OnInit {
-
+  isVisible = false;
 
   @Input() timeStamp;
   @Output() removeTimeStamp = new EventEmitter<string>();
 
-  isVisible = false;
   @HostListener('mouseenter') onEnter() {
     this.isVisible = true;
   }

@@ -10,19 +10,15 @@ export class StorageHandlerService {
   constructor() {
   }
 
-  public getPropertyValue(property) {
-    if (localStorage.getItem(property) !== 'undefined') {
-      return JSON.parse(localStorage.getItem(property));
-    } else {
-      return null;
-    }
+  getPropertyValue(property) {
+    return JSON.parse(localStorage.getItem(property));
   }
 
-  public clearStorage() {
+  clearStorage() {
     localStorage.clear();
   }
 
-  public savePropertyValue(property, value){
+  savePropertyValue(property, value) {
     localStorage.setItem(property, JSON.stringify(value));
   }
 }
